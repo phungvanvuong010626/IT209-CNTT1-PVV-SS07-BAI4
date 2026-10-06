@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bài 4 - Nginx Reverse Proxy | Spring Boot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #121826;
+            --bg-card: rgba(26, 34, 53, 0.7);
+            --border-card: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-nginx: #009639;
+            --accent-spring: #6db33f;
+            --accent-blue: #38bdf8;
+            --accent-purple: #818cf8;
+            --glow-nginx: rgba(0, 150, 57, 0.25);
+            --glow-spring: rgba(109, 179, 63, 0.25);
+            --gradient-title: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem 1rem;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(0, 150, 57, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(56, 189, 248, 0.12) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(109, 179, 63, 0.08) 0%, transparent 60%);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            padding: 2.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-nginx), var(--accent-blue), var(--accent-spring));
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent-blue);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #22c55e;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: var(--gradient-title);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.75rem;
+        }
+
+        p.sub-title {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.6;
+        }
+
+        .student-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin-top: 2rem;
+        }
+
+        .info-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-card);
+            border-radius: 14px;
+            padding: 1.25rem;
+            transition: all 0.25s ease;
+        }
+
+        .info-card:hover {
+            border-color: rgba(56, 189, 248, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .architecture-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .tech-box {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-card);
+            border-radius: 18px;
+            padding: 1.5rem;
+        }
+
+        .tech-box.nginx {
+            border-left: 4px solid var(--accent-nginx);
+        }
+
+        .tech-box.spring {
+            border-left: 4px solid var(--accent-spring);
+        }
+
+        .tech-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .tech-tag {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .nginx .tech-tag {
+            background: var(--glow-nginx);
+            color: #4ade80;
+        }
+
+        .spring .tech-tag {
+            background: var(--glow-spring);
+            color: #a3e635;
+        }
+
+        .tech-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .code-snippet {
+            background: #060910;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem;
+            color: #38bdf8;
+            overflow-x: auto;
+        }
+
+        .api-tester {
+            background: var(--bg-card);
+            border: 1px solid var(--border-card);
+            border-radius: 18px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn-test {
+            background: linear-gradient(135deg, #0284c7, #2563eb);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.4rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .btn-test:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .api-result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #060910;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            display: none;
+        }
+
+        footer {
+            margin-top: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Main Card -->
+        <div class="header-card">
+            <div class="badge">
+                <span class="pulse-dot"></span>
+                Nginx Reverse Proxy Online
+            </div>
+
+            <h1>Bài 4: Reverse Proxy Nginx & Spring Boot</h1>
+            <p class="sub-title">
+                Hệ thống định tuyến lưu lượng mạng kết hợp phục vụ trang tĩnh (Static Content) và chuyển tiếp yêu cầu API động đến Backend Spring Boot.
+            </p>
+
+            <!-- Student Profile Information -->
+            <div class="student-info-grid">
+                <div class="info-card">
+                    <div class="info-label">Họ và tên học viên</div>
+                    <div class="info-value" id="studentName">Nguyễn Văn A</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Mã lớp</div>
+                    <div class="info-value" id="classCode">IT209.N01</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Mã sinh viên (MSSV)</div>
+                    <div class="info-value" id="studentId">20210001</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Architecture Breakdown -->
+        <div class="architecture-grid">
+            <!-- Nginx Static -->
+            <div class="tech-box nginx">
+                <div class="tech-title">
+                    <span>Trang Tĩnh (Static Serve)</span>
+                    <span class="tech-tag">Port 80</span>
+                </div>
+                <p class="tech-desc">
+                    Mọi yêu cầu đến đường dẫn <code>/</code> được Nginx xử lý trực tiếp tại thư mục <code>/var/www/html/</code> với tốc độ phản hồi tối ưu.
+                </p>
+                <div class="code-snippet">
+                    location / {<br>
+                    &nbsp;&nbsp;root /var/www/html;<br>
+                    &nbsp;&nbsp;index index.html;<br>
+                    }
+                </div>
+            </div>
+
+            <!-- Spring Boot API -->
+            <div class="tech-box spring">
+                <div class="tech-title">
+                    <span>API Reverse Proxy</span>
+                    <span class="tech-tag">Port 8082</span>
+                </div>
+                <p class="tech-desc">
+                    Mọi yêu cầu có tiền tố <code>/api/</code> được Nginx chuyển tiếp an toàn (Reverse Proxy) sang Backend Spring Boot đang chạy ở cổng 8082.
+                </p>
+                <div class="code-snippet">
+                    location /api/ {<br>
+                    &nbsp;&nbsp;proxy_pass http://127.0.0.1:8082/;<br>
+                    &nbsp;&nbsp;proxy_set_header Host $host;<br>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick API Health Check Box -->
+        <div class="api-tester">
+            <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">Kiểm tra kết nối Reverse Proxy</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 1rem;">
+                Nhấn nút dưới đây để gửi yêu cầu đến <code>/api/health</code> qua Nginx:
+            </p>
+            <button class="btn-test" onclick="checkApiHealth()">Test /api/health</button>
+            <div id="apiResult" class="api-result"></div>
+        </div>
+
+        <footer>
+            Học phần IT209 - Session 07 | Bài tập cấu hình Reverse Proxy Nginx
+        </footer>
+    </div>
+
+    <script>
+        async function checkApiHealth() {
+            const resultBox = document.getElementById('apiResult');
+            resultBox.style.display = 'block';
+            resultBox.style.color = '#38bdf8';
+            resultBox.innerText = 'Đang gửi yêu cầu GET /api/health...';
+
+            try {
+                const response = await fetch('/api/health');
+                const status = response.status;
+                let dataText = '';
+                try {
+                    dataText = await response.text();
+                } catch(e) {}
+
+                if (response.ok) {
+                    resultBox.style.color = '#4ade80';
+                    resultBox.innerText = `[HTTP ${status} OK] Backend phản hồi thành công:\n` + dataText;
+                } else if (status === 502) {
+                    resultBox.style.color = '#f87171';
+                    resultBox.innerText = `[HTTP 502 Bad Gateway]\nNginx không thể kết nối tới Spring Boot tại http://127.0.0.1:8082.\nHãy kiểm tra ứng dụng Spring Boot đã chạy trên port 8082 chưa.`;
+                } else {
+                    resultBox.style.color = '#fbbf24';
+                    resultBox.innerText = `[HTTP ${status}]\nPhản hồi từ backend:\n` + dataText;
+                }
+            } catch (error) {
+                resultBox.style.color = '#f87171';
+                resultBox.innerText = `Lỗi kết nối: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
